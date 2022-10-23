@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - test-ci
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -21,7 +22,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11-dev"]
+        python-version: ["3.7", "3.10"]
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -59,67 +60,15 @@ jobs:
         with:
           name: coverage-xml
           path: coverage.xml
-  sonar:
-    needs:
-      - test
-    if: github.event.pull_request.head.repo.fork == false
+
+  docs:
+    needs: test
     runs-on: ubuntu-latest
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v3
-      - name: Download Artifacts
-        uses: actions/download-artifact@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          name: coverage-xml
-      - name: Fix coverage file for sonarcloud
-        run: sed -i "s/home\/runner\/work\/starlite\/starlite/github\/workspace/g" coverage.xml
-      - name: SonarCloud Scan
-        uses: sonarsource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-  snyk:
-    needs:
-      - test
-    if: github.event.pull_request.head.repo.fork == false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Run Snyk Monitor
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: snyk/actions/python-3.8@master
-        with:
-          command: monitor
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      - name: Run Snyk Test
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: snyk/actions/python-3.8@master
-        with:
-          command: test
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-  codeql:
-    needs:
-      - test
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-    steps:
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
-        with:
-          languages: python
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: v1-venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            v1-venv-${{ runner.os }}-${{ matrix.python-version }}
-            v1-venv-${{ runner.os }}
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+          python-version: "3.10"
+      - run: pip install mkdocs-material mkdocstrings[python] black
+      - run: mkdocs gh-deploy --force
