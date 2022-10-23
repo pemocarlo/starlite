@@ -1,5 +1,9 @@
 # Changelog
 
+[1.30.1]
+
+- Improved docs
+
 [1.30.0]
 
 - `url_for_static_asset` path resolver function.
